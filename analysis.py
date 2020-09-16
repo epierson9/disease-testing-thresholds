@@ -192,7 +192,7 @@ def load_indiana_data(indiana_data_filename, method):
 
     return indiana_d
 
-def make_rate_plot(white, black, hispanic, rate_name):
+def make_rate_plot(white, black, hispanic, rate_name, figname=None):
     """
     Scatterplot with white on x-axis, Black/Hispanic on y-axis. Accomodates missing data. 
     """
@@ -219,6 +219,8 @@ def make_rate_plot(white, black, hispanic, rate_name):
     plt.xlabel("White %s" % rate_name)
     plt.ylabel("Hispanic %s" % rate_name)
     plt.subplots_adjust(wspace=.3)
+    if figname is not None:
+        plt.savefig(figname)
     plt.show()
 
 def filter_and_annotate_raw_data(results, min_race_group_frac, min_race_group_n):
@@ -349,7 +351,7 @@ def signal_to_p(x, phi, delta, sigma_g=1):
     assert np.allclose(p, alternate_p)
     return p
 
-def analyze_fitted_model(fit, results, use_multinomial_model):
+def analyze_fitted_model(fit, results, use_multinomial_model, save_figures=False):
     """
     Do a bunch of analyses on the fitted model - not the best code design. 
     """
@@ -390,7 +392,8 @@ def analyze_fitted_model(fit, results, use_multinomial_model):
     make_rate_plot(white=threshold_df[('mean_threshold', 'Non-Hispanic White')].values, 
                 black=threshold_df[('mean_threshold', 'Non-Hispanic Black')].values, 
                 hispanic=threshold_df[('mean_threshold', 'Hispanic/Latino')].values, 
-                rate_name='threshold')
+                rate_name='threshold', 
+                figname='indiana_thresholds.pdf' if save_figures else None)
     plt.show()
 
     # Risk distributions. 
@@ -445,6 +448,8 @@ def analyze_fitted_model(fit, results, use_multinomial_model):
     ax.set_xlabel("")
     ax.set_xlabel("Risk")
     ax.legend()
+    if save_figures:
+        plt.savefig("indiana_risk_distributions.pdf")
     plt.show()
 
     # PPCs
@@ -477,6 +482,8 @@ def analyze_fitted_model(fit, results, use_multinomial_model):
         plt.plot([0, max(results['tests_per_pop']) + .03], [0, 0], linestyle='--', color='black')
         plt.xlabel("True tests per pop")
         plt.ylabel("Prediction error")
+        if save_figures:
+            plt.savefig("indiana_search_rate_ppc.pdf")
         plt.show()
 
     # hit rate PPC
@@ -490,6 +497,8 @@ def analyze_fitted_model(fit, results, use_multinomial_model):
     plt.plot([0, max(results['pos_frac']) + .03], [0, 0], linestyle='--', color='black')
     plt.xlabel("True positivity rate")
     plt.ylabel("Prediction error")
+    if save_figures:
+        plt.savefig("indiana_hit_rate_ppc.pdf")
     plt.show()
 
     # print error rates by race group. 
