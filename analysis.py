@@ -192,10 +192,12 @@ def load_indiana_data(indiana_data_filename, method):
 
     return indiana_d
 
-def make_rate_plot(white, black, hispanic, rate_name, figname=None):
+def make_rate_plot(white, black, hispanic, rate_name, figname=None, rate_name_for_axis_label=None):
     """
     Scatterplot with white on x-axis, Black/Hispanic on y-axis. Accomodates missing data. 
     """
+    if rate_name_for_axis_label is None:
+        rate_name_for_axis_label = rate_name
     white_nan = np.isnan(white)
     black_nan = np.isnan(black)
     hispanic_nan = np.isnan(hispanic)
@@ -204,11 +206,13 @@ def make_rate_plot(white, black, hispanic, rate_name, figname=None):
     plt.subplot(1, 2, 1) # white + Black
     good_idxs = ~(white_nan | black_nan)
     plt.scatter(white[good_idxs], black[good_idxs])
+    print("For %s, %i/%i points with data have larger values for white than Black" % 
+          (rate_name, (white[good_idxs] > black[good_idxs]).sum(), good_idxs.sum()))
     plt.plot([0, max_val], [0, max_val], linestyle='--', color='black')
     plt.xlim([0, max_val])
     plt.ylim([0, max_val])
-    plt.xlabel("White %s" % rate_name)
-    plt.ylabel("Black %s" % rate_name)
+    plt.xlabel("White %s" % rate_name_for_axis_label)
+    plt.ylabel("Black %s" % rate_name_for_axis_label)
     
     plt.subplot(1, 2, 2) # white + Hispanic
     good_idxs = ~(white_nan | hispanic_nan)
@@ -216,14 +220,16 @@ def make_rate_plot(white, black, hispanic, rate_name, figname=None):
     plt.xlim([0, max_val])
     plt.ylim([0, max_val])
     plt.plot([0, max_val], [0, max_val], linestyle='--', color='black')
-    plt.xlabel("White %s" % rate_name)
-    plt.ylabel("Hispanic %s" % rate_name)
+    plt.xlabel("White %s" % rate_name_for_axis_label)
+    plt.ylabel("Hispanic %s" % rate_name_for_axis_label)
+    print("For %s, %i/%i points with data have larger values for white than Hispanic" % 
+          (rate_name, (white[good_idxs] > hispanic[good_idxs]).sum(), good_idxs.sum()))
     plt.subplots_adjust(wspace=.3)
     if figname is not None:
         plt.savefig(figname)
     plt.show()
 
-def filter_and_annotate_raw_data(results, min_race_group_frac, min_race_group_n):
+def filter_and_annotate_raw_data(results, save_figures, min_race_group_frac, min_race_group_n):
     """
     Make basic descriptive plots, and filter for counties with at least a fraction min_race_group_frac of all race_groups and min_race_group_n of all race_groups. 
     """
@@ -296,7 +302,9 @@ def filter_and_annotate_raw_data(results, min_race_group_frac, min_race_group_n)
     make_rate_plot(white=hit_rates_by_race[('pos_frac', 'Non-Hispanic White')].values, 
                 black=hit_rates_by_race[('pos_frac', 'Non-Hispanic Black')].values, 
                 hispanic=hit_rates_by_race[('pos_frac', 'Hispanic/Latino')].values, 
-                rate_name='positive test frac')
+                rate_name='positive test frac', 
+                rate_name_for_axis_label='positivity rate',
+                figname='indiana_positivity_rate.pdf' if save_figures else None)
 
     results = results.sort_values(by='location') # this is what multinomial code expects. 
     return results
