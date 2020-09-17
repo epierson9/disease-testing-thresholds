@@ -192,7 +192,7 @@ def load_indiana_data(indiana_data_filename, method):
 
     return indiana_d
 
-def make_rate_plot(white, black, hispanic, rate_name, figname=None, rate_name_for_axis_label=None):
+def make_rate_plot(white, black, hispanic, rate_name, figname=None, rate_name_for_axis_label=None, s=None):
     """
     Scatterplot with white on x-axis, Black/Hispanic on y-axis. Accomodates missing data. 
     """
@@ -205,7 +205,11 @@ def make_rate_plot(white, black, hispanic, rate_name, figname=None, rate_name_fo
     plt.figure(figsize=[8, 4])
     plt.subplot(1, 2, 1) # white + Black
     good_idxs = ~(white_nan | black_nan)
-    plt.scatter(white[good_idxs], black[good_idxs])
+    if s is not None:
+        sizes = s[good_idxs]
+    else:
+        sizes = None
+    plt.scatter(white[good_idxs], black[good_idxs], s=sizes)
     print("For %s, %i/%i points with data have larger values for white than Black" % 
           (rate_name, (white[good_idxs] > black[good_idxs]).sum(), good_idxs.sum()))
     plt.plot([0, max_val], [0, max_val], linestyle='--', color='black')
@@ -216,7 +220,11 @@ def make_rate_plot(white, black, hispanic, rate_name, figname=None, rate_name_fo
     
     plt.subplot(1, 2, 2) # white + Hispanic
     good_idxs = ~(white_nan | hispanic_nan)
-    plt.scatter(white[good_idxs], hispanic[good_idxs])
+    if s is not None:
+        sizes = s[good_idxs]
+    else:
+        sizes = None
+    plt.scatter(white[good_idxs], hispanic[good_idxs], s=sizes)
     plt.xlim([0, max_val])
     plt.ylim([0, max_val])
     plt.plot([0, max_val], [0, max_val], linestyle='--', color='black')
@@ -273,29 +281,31 @@ def filter_and_annotate_raw_data(results, save_figures, min_race_group_frac, min
 
     # Cases   
     results['cases_per_pop'] = results['cases'] / results['Population']
-    per_capita_cases = pd.pivot_table(results[['race_group', 'location', 'cases_per_pop']], 
+    per_capita_cases = pd.pivot_table(results[['race_group', 'location', 'cases_per_pop', 'total_tests_for_location']], 
                    columns='race_group', 
                    index='location').reset_index()
 
     make_rate_plot(white=per_capita_cases[('cases_per_pop', 'Non-Hispanic White')].values, 
                 black=per_capita_cases[('cases_per_pop', 'Non-Hispanic Black')].values, 
                 hispanic=per_capita_cases[('cases_per_pop', 'Hispanic/Latino')].values, 
+                s=per_capita_cases[('total_tests_for_location', 'Hispanic/Latino')].values * 0.001,
                 rate_name='cases per pop')
 
     # tests per pop
     results['tests_per_pop'] = results['tests'] / results['Population']
-    per_capita_tests = pd.pivot_table(results[['race_group', 'location', 'tests_per_pop']], 
+    per_capita_tests = pd.pivot_table(results[['race_group', 'location', 'tests_per_pop', 'total_tests_for_location']], 
                    columns='race_group', 
                    index='location').reset_index()
 
     make_rate_plot(white=per_capita_tests[('tests_per_pop', 'Non-Hispanic White')].values, 
                 black=per_capita_tests[('tests_per_pop', 'Non-Hispanic Black')].values, 
                 hispanic=per_capita_tests[('tests_per_pop', 'Hispanic/Latino')].values, 
+                s=per_capita_tests[('total_tests_for_location', 'Hispanic/Latino')].values * 0.001,
                 rate_name='tests per pop')
 
     # cases per test
     results['pos_frac'] = results['cases'] / results['tests']
-    hit_rates_by_race = pd.pivot_table(results[['race_group', 'location', 'pos_frac']], 
+    hit_rates_by_race = pd.pivot_table(results[['race_group', 'location', 'pos_frac', 'total_tests_for_location']], 
                    columns='race_group', 
                    index='location').reset_index()
 
@@ -304,6 +314,7 @@ def filter_and_annotate_raw_data(results, save_figures, min_race_group_frac, min
                 hispanic=hit_rates_by_race[('pos_frac', 'Hispanic/Latino')].values, 
                 rate_name='positive test frac', 
                 rate_name_for_axis_label='positivity rate',
+                s=hit_rates_by_race[('total_tests_for_location', 'Hispanic/Latino')].values * 0.001,
                 figname='indiana_positivity_rate.pdf' if save_figures else None)
 
     results = results.sort_values(by='location') # this is what multinomial code expects. 
@@ -389,18 +400,16 @@ def analyze_fitted_model(fit, results, use_multinomial_model, save_figures=False
     for j in range(t_i.shape[1]):
         thresholds[:, j] = signal_to_p(x=t_i[:, j], phi=phi[:, j], delta=delta[:, j], sigma_g=1)
     results['mean_threshold'] = thresholds.mean(axis=0)
-    #results['upper_CI'] = np.percentile(thresholds, axis=0, q=97.5)
-    #results['lower_CI'] = np.percentile(thresholds, axis=0, q=2.5)
-    #results['CI_width'] = results['upper_CI'] - results['lower_CI']
-    #print("CIs on individual thresholds - note that these are not population-weighted, so don't take too literally")
-    #print(results.groupby('race_group')[['mean_threshold', 'CI_width']].agg(['median', 'mean']))
-    threshold_df = pd.pivot_table(results[['race_group', 'location', 'mean_threshold']], 
+
+    threshold_df = pd.pivot_table(results[['race_group', 'location', 'mean_threshold', 'total_tests_for_location']], 
                columns='race_group', 
                index='location').reset_index()
+
     make_rate_plot(white=threshold_df[('mean_threshold', 'Non-Hispanic White')].values, 
                 black=threshold_df[('mean_threshold', 'Non-Hispanic Black')].values, 
                 hispanic=threshold_df[('mean_threshold', 'Hispanic/Latino')].values, 
                 rate_name='threshold', 
+                s=threshold_df[('total_tests_for_location', 'Non-Hispanic White')].values * 0.001, # the race group doesn't matter, it's all tests
                 figname='indiana_thresholds.pdf' if save_figures else None)
     plt.show()
 
@@ -484,7 +493,7 @@ def analyze_fitted_model(fit, results, use_multinomial_model, save_figures=False
         sns.scatterplot(results['tests_per_pop'], 
                     results['tests_per_pop'] - results['predicted_search_rate'], 
                         hue=results['race_group'].values, 
-                        s=results['Population'] * .001)
+                        s=results['tests'] * .01)
         plt.ylim([-.05, .05])
         plt.xlim([0, max(results['tests_per_pop']) + .03])
         plt.plot([0, max(results['tests_per_pop']) + .03], [0, 0], linestyle='--', color='black')
